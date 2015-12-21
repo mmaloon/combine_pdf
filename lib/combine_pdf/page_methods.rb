@@ -727,14 +727,14 @@ module CombinePDF
 				fonts_array.each_index do |i|
 					if fonts_array[i].cmap.nil? || (fonts_array[i].cmap && fonts_array[i].cmap[c])
 						#add to array
-						if out.last.nil? || out.last[0] != fonts[i]
+						if out.last.nil? || fonts_array[i].metrics[c.ord] # out.last[0] != fonts[i]
 							out.last[1] << ">" unless out.last.nil?
-							out << [fonts[i], "<" , 0, 0] 
+							out << [fonts[i], "<" , 0, 0]
 						end
 						out.last[1] << ( fonts_array[i].cmap.nil? ? ( c.unpack("H*")[0] ) : (fonts_array[i].cmap[c]) )
-						if fonts_array[i].metrics[c]
-							out.last[2] += fonts_array[i].metrics[c][:wx].to_f
-							out.last[3] += fonts_array[i].metrics[c][:wy].to_f
+						if fonts_array[i].metrics[c.ord]
+							out.last[2] += fonts_array[i].metrics[c.ord][:wx].to_f
+							out.last[3] += fonts_array[i].metrics[c.ord][:wy].to_f
 						end
 						break
 					end

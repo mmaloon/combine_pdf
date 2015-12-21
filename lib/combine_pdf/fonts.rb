@@ -5,7 +5,7 @@
 ## is subject to the same license.
 ########################################################
 
-
+require "ttfunk/subset_collection"
 
 
 
@@ -287,74 +287,75 @@ module CombinePDF
 		# #
 		# # credit to the Prawn team and the Prawn PDF project. This code is based on their work.
 		# # Please respect their license or don't use this.
-		# def from_ttfunk(name, true_type_font_file)
-		# 	# FIXME: PDF_object isn't formated correcly.
-		# 	# missing ToUnicode? CMAP? wrong Stream content...?
+		def from_ttfunk(name, true_type_font_file)
+			# FIXME: PDF_object isn't formated correcly.
+			# missing ToUnicode? CMAP? wrong Stream content...?
 
-		# 	# read the TTFunk file
-		# 	ttfont = TTFunk::File.open true_type_font_file
-		# 	#set the scaling from the font to PDF points (1000)
-		# 	scale = 1000.0 / ttfont.header.units_per_em
-		# 	# PDF flags, as indicated by Prawn team's code
-		# 	flags = 0
-		# 	family_class = (ttfont.os2.exists? && ttfont.os2.family_class || 0) >> 8
-		# 	flags |= 0x0001 if ttfont.postscript.fixed_pitch?
-		# 	flags |= 0x0002 if [1,2,3,4,5,7].include? family_class
-		# 	flags |= 0x0008 if family_class == 10
-		# 	flags |= 0x0040 if ttfont.postscript.italic_angle.to_i != 0
-		# 	flags |= 0x0004 # Prawn assumes the font contains at least some non-latin characters
+			# read the TTFunk file
+			ttfont = TTFunk::File.open true_type_font_file
+			#set the scaling from the font to PDF points (1000)
+			scale = 1000.0 / ttfont.header.units_per_em
+			# PDF flags, as indicated by Prawn team's code
+			flags = 0
+			family_class = (ttfont.os2.exists? && ttfont.os2.family_class || 0) >> 8
+			flags |= 0x0001 if ttfont.postscript.fixed_pitch?
+			flags |= 0x0002 if [1,2,3,4,5,7].include? family_class
+			flags |= 0x0008 if family_class == 10
+			flags |= 0x0040 if ttfont.postscript.italic_angle.to_i != 0
+			flags |= 0x0004 # Prawn assumes the font contains at least some non-latin characters
 
-		# 	# get cmap
-		# 	cmap = ttfont.cmap.unicode[0].code_map
-		# 	# get metrics
-		# 	widths = ttfont.horizontal_metrics.widths
-		# 	metrics = {}
-		# 	cmap.each do |k,v|
-		# 		bb = ttfont.glyph_outlines.for(v)
-		# 		bb = bb ? [(bb.x_min*scale).to_i, (bb.y_min*scale).to_i, (bb.x_max*scale).to_i, (bb.y_max*scale).to_i ] : [0,0,0,0]
-		# 		metrics[k] = { wx: (widths[v].to_f * scale).to_i , boundingbox: bb}
-		# 	end
+			# get cmap
+			cmap = ttfont.cmap.unicode[0].code_map
+			# cmap = Hash[cmap.map{|k,v| [z]}]
+			# get metrics
+			widths = ttfont.horizontal_metrics.widths
+			metrics = {}
+			cmap.each do |k,v|
+				bb = ttfont.glyph_outlines.for(v)
+				bb = bb ? [(bb.x_min*scale).to_i, (bb.y_min*scale).to_i, (bb.x_max*scale).to_i, (bb.y_max*scale).to_i ] : [0,0,0,0]
+				metrics[k] = { wx: (widths[v].to_f * scale).to_i , boundingbox: bb}
+			end
 
-		# 	# create PDF object
-		# 	subset = TTFunk::SubsetCollection.new ttfont
-		# 	cmap.each {|k,v| subset.encode([k])}
-		# 	pdf_object = { 	:Type=>:Font,
-		# 				:Subtype=>:TrueType,
-		# 				:Name=>:name,
-		# 				:BaseFont=> ttfont.name.postscript_name[0, 32].gsub("\0",""),
-		# 				:Encoding=>:WinAnsiEncoding,
-		# 				:FirstChar=>((ttfont.os2.exists? && ttfont.os2.first_char_index) ? ttfont.os2.first_char_index : 32),
-		# 				:LastChar=>((ttfont.os2.exists? && ttfont.os2.last_char_index) ? ttfont.os2.last_char_index : 64335),
-		# 				:Widths=>widths,
-		# 				:FontDescriptor => {
-		# 					is_reference_only: true,
-		# 					:referenced_object => {
-		# 						:Type=>:FontDescriptor,
-		# 						:FontName=> ttfont.name.postscript_name[0, 32].gsub("\0",""),
-		# 						:Flags=>flags,
-		# 						:ItalicAngle=>ttfont.postscript.italic_angle,
-		# 						:Ascent=> ttfont.ascent * scale,
-		# 						:Descent=> ttfont.descent * scale,
-		# 						:CapHeight=>(ttfont.os2.exists? && ttfont.os2.cap_height) ? ttfont.os2.cap_height : ttfont.ascent * scale,
-		# 						:AvgWidth=>396,
-		# 						:MaxWidth=> ttfont.horizontal_header.advance_width_max, #maybe?
-		# 						:FontWeight=> (ttfont.os2.exists? && ttfont.os2.weight_class) ? ttfont.os2.weight_class : 400,
-		# 						:XHeight=> (ttfont.os2.exists? && ttfont.os2.x_height) ? (ttfont.os2.x_height * scale).to_i: metrics["x".ord][:wx],
-		# 						# :Leading=>16,
-		# 						:StemV=>0, #TTFunk doesn't compute this
-		# 						:FontBBox=>( ttfont.bbox.map {|i| (i*scale).to_i } ),
-		# 						:FontFile2=>{
-		# 							is_reference_only: true,
-		# 							referenced_object: {
-		# 								:Length => ttfont.contents.length,
-		# 								raw_stream_content: subset[0..-1][0].encode
-		# 							}
-		# 						}
-		# 					}
-		# 				}
-		# 			}
-		# 	register_font name, metrics, pdf_object, cmap
-		# end
+			# create PDF object
+			subset = TTFunk::SubsetCollection.new ttfont
+			cmap.each {|k,v| subset.encode([k])}
+			pdf_object = { 	:Type=>:Font,
+						:Subtype=>:TrueType,
+						:Name=>:name,
+						:BaseFont=> ttfont.name.postscript_name[0, 32].gsub("\0",""),
+						:Encoding=>:WinAnsiEncoding,
+						:FirstChar=>((ttfont.os2.exists? && ttfont.os2.first_char_index) ? ttfont.os2.first_char_index : 32),
+						:LastChar=>((ttfont.os2.exists? && ttfont.os2.last_char_index) ? ttfont.os2.last_char_index : 64335),
+						:Widths=>widths,
+						:FontDescriptor => {
+							is_reference_only: true,
+							:referenced_object => {
+								:Type=>:FontDescriptor,
+								:FontName=> ttfont.name.postscript_name[0, 32].gsub("\0",""),
+								:Flags=>flags,
+								:ItalicAngle=>ttfont.postscript.italic_angle,
+								:Ascent=> ttfont.ascent * scale,
+								:Descent=> ttfont.descent * scale,
+								:CapHeight=>(ttfont.os2.exists? && ttfont.os2.cap_height) ? ttfont.os2.cap_height : ttfont.ascent * scale,
+								:AvgWidth=>396,
+								:MaxWidth=> ttfont.horizontal_header.advance_width_max, #maybe?
+								:FontWeight=> (ttfont.os2.exists? && ttfont.os2.weight_class) ? ttfont.os2.weight_class : 400,
+								:XHeight=> (ttfont.os2.exists? && ttfont.os2.x_height) ? (ttfont.os2.x_height * scale).to_i: metrics["x".ord][:wx],
+								# :Leading=>16,
+								:StemV=>0, #TTFunk doesn't compute this
+								:FontBBox=>( ttfont.bbox.map {|i| (i*scale).to_i } ),
+								:FontFile2=>{
+									is_reference_only: true,
+									referenced_object: {
+										:Length => ttfont.contents.length,
+										raw_stream_content: subset[0..-1][0].encode
+									}
+								}
+							}
+						}
+					}
+			register_font name, metrics, pdf_object, nil # cmap
+		end
 
 		protected
 

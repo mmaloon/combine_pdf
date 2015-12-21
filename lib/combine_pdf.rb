@@ -8,6 +8,7 @@ require 'set'
 
 #require the RC4 Gem
 require 'rc4'
+require 'ttfunk'
 
 
 load "combine_pdf/api.rb"

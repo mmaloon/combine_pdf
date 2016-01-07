@@ -23,8 +23,7 @@ load "combine_pdf/pdf_public.rb"
 load "combine_pdf/pdf_protected.rb"
 
 # load "combine_pdf/operations.rb"
-
-load "combine_pdf/version.rb"
+# load "combine_pdf/version.rb"
 
 
 # This is a pure ruby library to combine/merge, stmap/overlay and number PDF files - as well as to create tables (ment for indexing combined files).

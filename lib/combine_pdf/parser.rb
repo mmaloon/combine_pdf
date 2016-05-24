@@ -36,7 +36,7 @@ module CombinePDF
 		# the info and root objects, as found (if found) in the PDF file.
 		#
 		# they are mainly to used to know if the file is (was) encrypted and to get more details.
-		attr_reader :info_object, :root_object, :names_object
+		attr_reader :info_object, :root_object, :names_object, :forms_object
 
 		# when creating a parser, it is important to set the data (String) we wish to parse.
 		#
@@ -54,6 +54,7 @@ module CombinePDF
 			@root_object = {}
 			@info_object = {}
 			@names_object = {}
+			@forms_object = {}
 			@strings_dictionary = {} # all strings are one string
 			@version = nil
 			@scanner = nil
@@ -99,10 +100,10 @@ module CombinePDF
 			object_streams = @parsed.select {|obj| obj.is_a?(Hash) && obj[:Type] == :ObjStm}
 			unless object_streams.empty?
 				warn "PDF 1.5 Object streams found - they are not fully supported! attempting to extract objects."
-				
+
 				object_streams.each do |o|
 					## un-encode (using the correct filter) the object streams
-					PDFFilter.inflate_object o 
+					PDFFilter.inflate_object o
 					## extract objects from stream to top level arry @parsed
 					@scanner = StringScanner.new o[:raw_stream_content]
 					stream_data = _parse_
@@ -123,7 +124,6 @@ module CombinePDF
 			# Strings were unified, we can let them go..
 			@strings_dictionary.clear
 
-			
 			# serialize_objects_and_references.catalog_pages
 
 			# Benchmark.bm do |bm|
@@ -315,10 +315,9 @@ module CombinePDF
 				when str = @scanner.scan(/\%/)
 					#is a comment, skip until new line
 					loop do
-						break unless @scanner.scan(/[^\d\r\n]+/)
-						break if @scanner.check(/([\d]+[\s]+[\d]+[\s]+obj[\n\r\s]+\<\<)|([\n\r]+)/)
-						break if @scanner.eos?
-						@scanner.pos += 1
+						# break unless @scanner.scan(/[^\d\r\n]+/)
+						break if @scanner.check(/([\d]+[\s]+[\d]+[\s]+obj[\n\r\s]+\<\<)|([\n\r]+)/) || @scanner.eos? # || @scanner.scan(/[^\d]+[\r\n]+/) ||
+						@scanner.scan(/[^\d\r\n]+/) || @scanner.pos += 1
 					end
 					# puts "AFTER COMMENT: #{@scanner.peek 8}"
 				##########################################
@@ -365,13 +364,18 @@ module CombinePDF
 						if @scanner.skip_until(/<</)
 							data = _parse_
 							@root_object ||= {}
-							@root_object[data.shift] = data.shift while data[0]						
+							@root_object[data.shift] = data.shift while data[0]
 						end
 						##########
 						## skip untill end of segment, maked by %%EOF
 						@scanner.skip_until(/\%\%EOF/)
+						##########
+						## If this was the last valid segment, ignore any trailing garbage
+						## (issue #49 resolution)
+						break unless @scanner.exist?(/\%\%EOF/)
+
 					end
-					
+
 				when @scanner.scan(/[\s]+/)
 					# Generally, do nothing
 					nil
@@ -379,8 +383,8 @@ module CombinePDF
 					# Fix wkhtmltopdf PDF authoring issue - missing 'endobj' keywords
 					unless fresh || (out[-4].nil? || out[-4].is_a?(Hash))
 						keep = []
-						keep << out.pop # .tap {|i| puts "#{i} is an ID"} 
-						keep << out.pop # .tap {|i| puts "#{i} is a REF"} 
+						keep << out.pop # .tap {|i| puts "#{i} is an ID"}
+						keep << out.pop # .tap {|i| puts "#{i} is a REF"}
 
 						if out.last.is_a? Hash
 							out << out.pop.merge({indirect_generation_number: out.pop, indirect_reference_id: out.pop})
@@ -394,9 +398,9 @@ module CombinePDF
 					end
 					fresh = false
 				else
-					# always advance 
-					# warn "Advnacing for unknown reason... #{@scanner.peek(4)}" unless @scanner.peek(1) =~ /[\s\n]/
-					warn "Warning: parser advnacing for unknown reason. Potential data-loss."
+					# always advance
+					# warn "Advancing for unknown reason... #{@scanner.peek(4)}" unless @scanner.peek(1) =~ /[\s\n]/
+					warn "Warning: parser advancing for unknown reason. Potential data-loss."
 					@scanner.pos = @scanner.pos + 1
 				end
 			end
@@ -421,7 +425,7 @@ module CombinePDF
 
 				raise "Unknown error - parsed data doesn't contain a cataloged object!" unless catalogs
 			end
-			case 
+			case
 			when catalogs.is_a?(Array)
 				catalogs.each {|c| catalog_pages(c, inheritance_hash ) unless c.nil?}
 			when catalogs.is_a?(Hash)
@@ -467,6 +471,7 @@ module CombinePDF
 					when :Pages
 						catalog_pages(catalogs[:Kids], inheritance_hash.dup ) unless catalogs[:Kids].nil?
 					when :Catalog
+						@forms_object.update( (catalogs[:AcroForm][:referenced_object] || catalogs[:AcroForm]), &self.class.method(:hash_update_proc_for_new) ) if catalogs[:AcroForm]
 						@names_object.update( (catalogs[:Names][:referenced_object] || catalogs[:Names]), &self.class.method(:hash_update_proc_for_new) ) if catalogs[:Names]
 						catalog_pages(catalogs[:Pages], inheritance_hash.dup ) unless catalogs[:Pages].nil?
 					end

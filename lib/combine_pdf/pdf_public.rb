@@ -104,6 +104,7 @@ module CombinePDF
 			@version = parser.version if parser.version.is_a? Float
 			@info = parser.info_object || {}
 			@names = parser.names_object || {}
+			@forms_data = parser.forms_object || {}
 
 			# general globals
 			@set_start_id = 1
@@ -146,9 +147,13 @@ module CombinePDF
 		def author=(new_author = nil)
 			@info[:Author] = new_author
 		end
+		# Clears any existing form data.
+		def clear_forms_data
+			@forms_data.nil? || @forms_data.clear
+		end
 
 		# Save the PDF to file.
-		# 
+		#
 		# file_name:: is a string or path object for the output.
 		#
 		# **Notice!** if the file exists, it **WILL** be overwritten.
@@ -294,7 +299,13 @@ module CombinePDF
 			if data.is_a? PDF
 		 		@version = [@version, data.version].max
 				pages_to_add = data.pages
-				@names.update data.names_object, &self.class.method(:hash_merge_new_no_page)
+				actual_value(@names).update actual_value(data.names_object), &self.class.method(:hash_merge_new_no_page)
+				if actual_value(@forms_data)
+					actual_value(@forms_data).update actual_value(data.forms_data), &self.class.method(:hash_merge_new_no_page) if data.forms_data
+				else
+					@forms_data = data.forms_data
+				end
+				warn "Form data might be lost when combining PDF forms (possible conflicts)." unless data.forms_data.nil? || data.forms_data.empty?
 			elsif data.is_a?(Array) && (data.select {|o| !(o.is_a?(Hash) && o[:Type] == :Page) } ).empty?
 				pages_to_add = data
 			elsif data.is_a?(Hash) && data[:Type] == :Page
@@ -403,7 +414,7 @@ module CombinePDF
 					right_position = page_width - from_side - box_width
 					top_position = page_height - from_height
 					bottom_position = from_height + box_height
-					
+
 					if opt[:location].include? :top
 						 page.textbox text, {x: center_position, y: top_position }.merge(add_opt)
 					end
@@ -444,7 +455,7 @@ module CombinePDF
 				options[:location] ||= [:center]
 				number_pages({number_format: stamp}.merge(options))
 			when Page_Methods
-				# stamp = stamp.copy(true) 
+				# stamp = stamp.copy(true)
 				if options[:underlay]
 					(options[:page_range] ? pages[options[:page_range]] : pages).each {|p| p >> stamp}
 				else
@@ -458,4 +469,3 @@ module CombinePDF
 	end
 
 end
-

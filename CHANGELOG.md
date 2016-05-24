@@ -2,6 +2,54 @@
 
 ***
 
+Change log v.0.2.21
+
+**Fix**: fix for issue #54 and #59 (duplicate), discovered by @iggant (Anton Kolodii), related to name conflict resolution and page resources. The issue would cause and error (exception) to occur when attempting to merge pages with specific resource structures. Credit to @cw6365 (Chris Ward) and @DenKey (Den) as well.
+
+***
+
+Change log v.0.2.20
+
+**Fix**: fix for issue #56, discovered by @LeptonHeavy, regarding errors caused by the new PDF form support feature.
+
+***
+
+Change log v.0.2.19 (yanked)
+
+**Partial fix**: unconfirmed fix for issue #56, discovered by @LeptonHeavy, regarding errors caused by the new PDF form support feature.
+
+***
+
+Change log v.0.2.18 (yanked)
+
+**Feature**: added minor (read: initial and incomplete) PDF forms support, in an attempt to preserve form data when combining PDF files.
+
+***
+
+Change log v.0.2.17
+
+**Feature**: added the `page#crop` method to easily crop a PDF file in accordance with the GWG industry association recommendations (updating the `MediaBox` property rather then the `CropBox`). Credit to @wingleungchoi for this feature.
+
+***
+
+Change log v.0.2.16
+
+**Fix**: Fix for issue #49 where specific PDF files containing junk data after the %%EOF marker couldn't be opened (as they were invalid files). The issue was fixed by scanning any trailing data before continuing to parse any PDF file beyond the first %%EOF markers (multiple markers are common when using the PDF format). Credit to @wingleungchoi for providing an example for the issue.
+
+***
+
+Change log v.0.2.15
+
+**Fix**: Fix for issue #22 where specific PDF files with nested references could cause page stamping to fail, raising an exception. Credit to @tomascharad for finding the issue.
+
+***
+
+Change log v.0.2.14
+
+**Fix**: Fix for issue #39, where certain comments could have caused the object after the comments to be ignored, resulting in parsing errors. Credit to @lgn21st for identifying the issue.
+
+***
+
 Change log v.0.2.13
 
 **Fix** fixed issue # 37 reported by @sega (thank you for reporting!), regarding the insability to stamp one PDF page over another when one PDF page used a resource directory propegated with data and another page used a resource directory propegated with references. This was now resolved by checking for references before merging the data.
@@ -32,7 +80,7 @@ Change log v.0.2.10
 
 Change log v.0.2.9
 
-**Fix** hopefully fixed issue #33 ([NoMethodError undefined method `[]' for nil:NilClass](https://github.com/boazsegev/combine_pdf/issues/33)).
+**Fix** hopefully fixed issue #33 ([NoMethodError undefined method `[]` for nil:NilClass](https://github.com/boazsegev/combine_pdf/issues/33)).
 
 ***
 
@@ -44,7 +92,7 @@ Change log v.0.2.8
 
      Now there is no longer any need for the guesswork. The process is automated for you.
 
-     The moment CombinePDF recognizes a resource name conflice between two pages (such as both pages using one font name to reference two different fonts), CombinePDF will intrusively rename the incoming page's resources. 
+     The moment CombinePDF recognizes a resource name conflice between two pages (such as both pages using one font name to reference two different fonts), CombinePDF will intrusively rename the incoming page's resources.
 
      It is true that the intrusive resource renaming is somewhat risky and might require the inflation of some comperssed page data (resulting in bigger file sizes), but this is the only way to attempt and prevent PDF data curruption.
 
@@ -164,7 +212,7 @@ Change log v.0.1.19
 
 Change log v.0.1.18
 
-**fix**: Thank to Stefan, who reported issue #15 , we discovered that in some cases PDF files presented the wrong PDF standard version, causing an error while attempting to parse their data. The issue has been fixed by allowing the parser to search for PDF Object Streams even when the PDF file claims a PDF version below 1.5. 
+**fix**: Thank to Stefan, who reported issue #15 , we discovered that in some cases PDF files presented the wrong PDF standard version, causing an error while attempting to parse their data. The issue has been fixed by allowing the parser to search for PDF Object Streams even when the PDF file claims a PDF version below 1.5.
 
 ***
 

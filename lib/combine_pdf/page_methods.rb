@@ -52,7 +52,7 @@ module CombinePDF
 			inject_page obj, false
 		end
 		def inject_page obj, top = true
-			
+
 			raise TypeError, "couldn't inject data, expecting a PDF page (Hash type)" unless obj.is_a?(Page_Methods)
 
 			obj = obj.copy( should_secure?(obj) ) #obj.copy(secure_injection)
@@ -115,7 +115,7 @@ module CombinePDF
 
 		# get page size
 		def page_size
-			cropbox || mediabox			
+			cropbox || mediabox
 		end
 
 		# accessor (getter) for the :Resources element of the page
@@ -223,7 +223,7 @@ module CombinePDF
 				radius = options[:box_radius]
 				half_radius = (radius.to_f / 2).round 4
 				## set starting point
-				box_stream << "#{options[:x] + radius} #{options[:y]} m\n" 
+				box_stream << "#{options[:x] + radius} #{options[:y]} m\n"
 				## buttom and right corner - first line and first corner
 				box_stream << "#{options[:x] + options[:width] - radius} #{options[:y]} l\n" #buttom
 				if options[:box_radius] != 0 # make first corner, if not straight.
@@ -326,7 +326,7 @@ module CombinePDF
 				# format text object(s)
 					# text_stream << "#{options[:font_color].join(' ')} rg\n" # sets the color state
 				encode_text(text, fonts).each do |encoded|
-					text_stream << "BT\n" # the Begine Text marker			
+					text_stream << "BT\n" # the Begine Text marker
 					text_stream << format_name_to_pdf(set_font encoded[0]) # Set font name
 					text_stream << " #{font_size.round 3} Tf\n" # set font size and add font operator
 					text_stream << "#{x.round 4} #{y.round 4} Td\n" # set location for text object
@@ -440,6 +440,38 @@ module CombinePDF
 			# always return self, for chaining.
 			self
 		end
+
+		# crops the page using a <b>relative</b> size.
+		#
+		# `crop` will crop the page by updating it's MediaBox property using a <b>relative</b> crop box. i.e.,
+	  # when cropping a page with {#page_size} of [10,10,900,900] to [5,5,500,500], the resulting page size should be [15, 15, 510, 510] - allowing you to ignore a page's initial XY starting point when cropping.
+		#
+		# for an absolute cropping, simpy use the {#mediabox=} or {#cropbox=} methods, setting their value to the new {page_size}.
+		#
+		# accepts:
+		# new_size:: an Array with four elements: [X0, Y0, X_max, Y_max]. For example, inch4(width)x6(length): `[200, 200, 488, 632]`
+		def crop(new_size=nil)
+			# no crop box? clear any cropping.
+			return page_size if !new_size
+			# type safety
+			raise TypeError, "pdf.page\#crop expeceted an Array (or nil)" unless Array === new_size
+
+			# set the MediaBox to the existing page size
+			self[:MediaBox] = page_size
+			# clear the CropBox
+			self[:CropBox] = nil
+			# update X0
+			self[:MediaBox][0] += new_size[0]
+			# update Y0
+			self[:MediaBox][1] += new_size[1]
+			# update X max IF the value is smaller then the existing value
+			self[:MediaBox][2] = (self[:MediaBox][0] + new_size[2] - new_size[0]) if ((self[:MediaBox][0] + new_size[2] - new_size[0])  < self[:MediaBox][2])
+			# update Y max IF the value is smaller then the existing value
+			self[:MediaBox][3] = (self[:MediaBox][1] + new_size[3] - new_size[1]) if ((self[:MediaBox][1] + new_size[3] - new_size[1])  < self[:MediaBox][3])
+			# return self for chaining
+			self
+		end
+
 
 		# rotate the page 90 degrees counter clockwise
 		def rotate_left
@@ -571,7 +603,7 @@ module CombinePDF
 					box_color = (options[:alternate_color] && ( (row_number.odd? && options[:headers]) || row_number.even? ) ) ? options[:alternate_color] : options[:main_color]
 					textbox text, {x: x, y: (top - (height*row_number)), width: column_widths[i], height: height, box_color: box_color, text_align: options[:row_align]}.merge(options)
 					x += column_widths[i]
-				end			
+				end
 				row_number += 1
 			end
 			self
@@ -615,7 +647,12 @@ module CombinePDF
 		#initializes the content stream in case it was not initialized before
 		def init_contents
 			self[:Contents] = self[:Contents][:referenced_object][:indirect_without_dictionary] if self[:Contents].is_a?(Hash) && self[:Contents][:referenced_object] && self[:Contents][:referenced_object].is_a?(Hash) && self[:Contents][:referenced_object][:indirect_without_dictionary]
+			self[:Contents] = [self[:Contents]] unless self[:Contents].is_a?(Array)
 			self[:Contents].delete({ is_reference_only: true , referenced_object: {indirect_reference_id: 0, raw_stream_content: ''} })
+			# un-nest any referenced arrays
+			self[:Contents].map! {|s| actual_value(s).is_a?(Array) ? actual_value(s) : s}
+			self[:Contents].flatten!
+			self[:Contents].compact!
 			# wrap content streams
 			insert_content 'q', 0
 			insert_content 'Q'
@@ -642,8 +679,11 @@ module CombinePDF
 
 		def prep_content_array
 			return self if self[:Contents].is_a?(Array)
-			self[:Contents] = self[:Contents][:referenced_object] if self[:Contents].is_a?(Hash) && self[:Contents][:referenced_object] && self[:Contents][:referenced_object].is_a?(Array)
-			self[:Contents] = [ self[:Contents] ].compact
+			init_contents
+			# self[:Contents] = self[:Contents][:referenced_object] if self[:Contents].is_a?(Hash) && self[:Contents][:referenced_object] && self[:Contents][:referenced_object].is_a?(Array)
+			# self[:Contents] = self[:Contents][:indirect_without_dictionary] if self[:Contents].is_a?(Hash) && self[:Contents][:indirect_without_dictionary] && self[:Contents][:indirect_without_dictionary].is_a?(Array)
+			# self[:Contents] = [self[:Contents]] unless self[:Contents].is_a?(Array)
+			# self[:Contents].compact!
 			self
 		end
 
@@ -791,7 +831,7 @@ module CombinePDF
 			# travel every dictionary to pick up names (keys), change them and add them to the dictionary
 			res = self.resources
 			res.each do |k,v|
-				if v.is_a?(Hash)
+				if actual_value(v).is_a?(Hash)
 					# if k == :XObject
 					# 	self[:Resources][k] = v.dup
 					# 	next
@@ -799,7 +839,7 @@ module CombinePDF
 					new_dictionary = {}
 					new_name = "Combine" + SecureRandom.hex(7) + "PDF"
 					i = 1
-					actual_object(v).each do |old_key, value|
+					actual_value(v).each do |old_key, value|
 						new_key = (new_name + i.to_s).to_sym
 						names_dictionary[old_key] = new_key
 						new_dictionary[new_key] = value
@@ -814,10 +854,10 @@ module CombinePDF
 			# we will need to make sure we have access to the stream injected
 			# we will user PDFFilter.inflate_object
 			self[:Contents].each do |c|
-				stream = actual_object(c)
+				stream = actual_value(c)
 				PDFFilter.inflate_object stream
 				names_dictionary.each do |old_key, new_key|
-					stream[:raw_stream_content].gsub! object_to_pdf(old_key), object_to_pdf(new_key)  ##### PRAY(!) that the parsed datawill be correctly reproduced! 
+					stream[:raw_stream_content].gsub! object_to_pdf(old_key), object_to_pdf(new_key)  ##### PRAY(!) that the parsed datawill be correctly reproduced!
 				end
 				# # # the following code isn't needed now that we wrap both the existing and incoming content streams.
 				# # patch back to PDF defaults, for OCRed PDF files.
@@ -829,17 +869,18 @@ module CombinePDF
 		# @return [true, false] returns true if there are two different resources sharing the same named reference.
 		def should_secure?(page)
 			# travel every dictionary to pick up names (keys), change them and add them to the dictionary
-			res = self.resources
-			foreign_res = page.resources
-			res.each {|k,v| v.keys.each {|name| return true if foreign_res[k] && (foreign_res[k][:referenced_object] || foreign_res[k])[name] && (foreign_res[k][:referenced_object] || foreign_res[k])[name] != (v[:referenced_object] || v)[name]} if v.is_a?(Hash) }
+			res = actual_value(self.resources)
+			foreign_res = actual_value(page.resources)
+			tmp = nil
+			res.each do |k,v|
+				if ((v = actual_value(v)).is_a?(Hash) && (tmp = actual_value(foreign_res[k])).is_a?(Hash) )
+					v.keys.each do |name| return true if tmp[name] && tmp[name] != v[name]
+					end # else # Do nothing, this is taken care of elseware
+				end
+			end
 			false
 		end
 
 	end
-	
+
 end
-
-
-
-
-
